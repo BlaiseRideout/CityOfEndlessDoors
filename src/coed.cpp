@@ -1,5 +1,4 @@
 #include <SDL/SDL.h>
-#include <SDL/SDL_image.h>
 #include <SDL/SDL_mixer.h>
 #include <GL/glew.h>
 #include <stdio.h>
@@ -68,6 +67,13 @@ struct Vec2 {
     x = y = 0;
   }
 
+  void nonzero() {
+    if(x < 0.01f && x > -0.01f && y < 0.01f && y > -0.01f) {
+      x = 0.1f;
+      y = 0.1f; 
+    }
+  }
+
   Vec2(float x, float y) {
     this->x = x;
     this->y = y;
@@ -80,7 +86,6 @@ struct Vec2 {
 };
 
 static void     draw_stuff();
-static void     draw_building(float shade, float windowshade, int facing, int stories, float x, float z);
 static void     draw_quad(float shade, Vec3 p1, Vec3 p2, Vec3 p3, Vec3 p4);
 static void     update();
 static void     handle_input();
@@ -92,6 +97,73 @@ static void     glPerspective(GLdouble fovy, GLdouble aspect, GLdouble zNear, GL
 static void     init();
 static string*  filetobuf(const char *file);
 
+struct Building {
+  Vec2 pos;
+  int stories;
+  int facing;
+  float shade;
+  float windowshade;
+  bool open;
+
+  void draw() {
+    glPushMatrix();
+    glTranslatef(pos.x, 0.0, pos.y);
+    glRotatef(facing * 90.0f, 0.0f, 1.0f, 0.0f);
+    glTranslatef(-4.0f, 0, -4.0f);
+    const float story_scale = 2.0f;
+    const float width = 8.0f;
+    for(float i = 0; i < width; i+=width / 9) {
+      draw_quad(shade, Vec3(i, story_scale * 1.5, 0), Vec3(i, stories * story_scale, 0), Vec3(i + width / 9, stories * story_scale, 0), Vec3(i + width / 9, story_scale * 1.5, 0));
+      i += width / 9;
+      if(i < width) {
+        for(float j = story_scale * 1.5; j + story_scale * 3 / 4 < stories * story_scale; j+=story_scale) {
+          draw_quad(shade, Vec3(i, j + story_scale * 3 / 4, 0), Vec3(i, j + story_scale * 5 / 4, 0), Vec3(i + width / 9, j + story_scale * 5 / 4, 0), Vec3(i + width / 9, j + story_scale * 3 / 4, 0));
+
+          draw_quad(shade, Vec3(i, j + story_scale / 4, 0.1f), Vec3(i, j + story_scale / 4, 0), Vec3(i, j + story_scale * 3 / 4, 0), Vec3(i, j + story_scale * 3 / 4, 0.1f));
+          draw_quad(shade, Vec3(i + width / 9, j + story_scale / 4, 0), Vec3(i + width / 9, j + story_scale / 4, 0.1f), Vec3(i + width / 9, j + story_scale * 3 / 4, 0.1f), Vec3(i + width / 9, j + story_scale * 3 / 4, 0));
+
+          draw_quad(shade, Vec3(i, j + story_scale * 3 / 4, 0.1f), Vec3(i, j + story_scale * 3 / 4, 0), Vec3(i + width / 9, j + story_scale * 3 / 4, 0), Vec3(i + width / 9, j + story_scale * 3 / 4, 0.1f));
+
+          draw_quad(windowshade, Vec3(i, j + story_scale / 4, 0.1f), Vec3(i, j + story_scale * 3 / 4, 0.1f), Vec3(i + width / 9, j + story_scale * 3 / 4, 0.1f), Vec3(i + width / 9, j + story_scale / 4, 0.1f));
+        }
+        draw_quad(shade, Vec3(i, stories * story_scale - story_scale / 4, 0), Vec3(i, stories * story_scale, 0), Vec3(i + width / 9, stories * story_scale, 0), Vec3(i + width / 9, stories * story_scale - story_scale / 4, 0));
+      }
+    }
+    draw_quad(shade, Vec3(0, 0, 0), Vec3(0, story_scale * 1.75, 0), Vec3(width * 4 / 9, story_scale * 1.75, 0), Vec3(width * 4 / 9, 0, 0));
+    draw_quad(shade, Vec3(width * 5 / 9, 0, 0), Vec3(width * 5 / 9, story_scale * 1.75, 0), Vec3(width, story_scale * 1.75, 0), Vec3(width, 0, 0));
+    if(open) {
+
+    }
+    else {
+      draw_quad(shade, Vec3(width * 4 / 9, 0, 0.1f), Vec3(width * 4 / 9, story_scale * 1.5, 0.1f), Vec3(width * 5 / 9, story_scale * 1.5, 0.1f), Vec3(width * 5 / 9, 0, 0.1f));
+      draw_quad(shade, Vec3(width * 4 / 9, 0, 0.1f), Vec3(width * 4 / 9, 0, 0), Vec3(width * 4 / 9, story_scale * 1.5, 0), Vec3(width * 4 / 9, story_scale * 1.5, 0.1f));
+      draw_quad(shade, Vec3(width * 5 / 9, 0, 0), Vec3(width * 5 / 9, 0, 0.1f), Vec3(width * 5 / 9, story_scale * 1.5, 0.1f), Vec3(width * 5 / 9, story_scale * 1.5, 0));
+      draw_quad(shade, Vec3(width * 4 / 9, story_scale * 1.5, 0.1f), Vec3(width * 4 / 9, story_scale * 1.5, 0), Vec3(width * 5 / 9, story_scale * 1.5, 0), Vec3(width * 5 / 9, story_scale * 1.5, 0.1f));
+    }
+    draw_quad(shade, Vec3(0, 0, 0), Vec3(0, 0, width), Vec3(0, stories * story_scale, width), Vec3(0, stories * story_scale, 0));
+    draw_quad(shade, Vec3(width, 0, 0), Vec3(width, stories * story_scale, 0), Vec3(width, stories * story_scale, width), Vec3(width, 0, width));
+    draw_quad(shade, Vec3(width, stories * story_scale, width), Vec3(0, stories * story_scale, width), Vec3(0, 0, width), Vec3(width, 0, width));
+    glPopMatrix();
+  }
+
+  Building(float shade, float windowshade, Vec2 pos, int stories, int facing) {
+    this->shade = shade;
+    this->windowshade = windowshade;
+    this->pos = pos;
+    this->stories = stories;
+    this->facing = facing % 4;
+  }
+
+  Building() {
+    this->shade = 0.0f;
+    this->windowshade = 0.0f;
+    this->pos.x = 0.0f;
+    this->pos.y = 0.0f;
+    this->stories = 0;
+    this->facing = 0;
+  }
+};
+
 static GLuint           shaderprogram;
 static unsigned int     SCREEN_BPP = 32;
 static unsigned int     SCREEN_WIDTH = 1366;
@@ -101,21 +173,21 @@ static SDL_Event        event;
 static int              prevkeys[323] = { 0 };
 static int              keys[323] = { 0 };
 static Vec2             mrel;
-static Vec2             playerpos(3.0f, -7.0f);
+static Vec2             playerpos(5.0f, -6.0f);
 static Vec2             playervel(0.0f, 0.0f);
 static Vec2             look(-1.5f, 0.0f);
 static bool             running = true;
 static bool             fullscreen = false;
 static bool             sound = false;
+static Building         buildings[10][10];
 
 static void draw_stuff() {
   draw_quad(.3f, Vec3(playerpos.x - 200, 0, playerpos.y - 200), Vec3(playerpos.x - 200, 1, playerpos.y + 200), Vec3(playerpos.x + 200, 0, playerpos.y + 200), Vec3(playerpos.x + 200, 0, playerpos.y - 200));
-  for(int i = -5; i < 5; ++i)
-    for(int j = -5; j < 5; ++j)
-      draw_building(.5f, 0.9f, (int)i % 4, 10, i * 20, j * 20);
-//  draw_building(.5f, 0.9f, 0, 10, 0, 0);
+  for(int i = 0; i < 10; ++i)
+    for(int j = 0; j < 10; ++j)
+      buildings[i][j].draw(); 
 }
-
+/*
 static void draw_building(float shade, float windowshade, int facing, int stories, float x, float z) {
   glPushMatrix();
   glTranslatef(x, 0, z);
@@ -152,20 +224,18 @@ static void draw_building(float shade, float windowshade, int facing, int storie
   draw_quad(shade, Vec3(width, stories * story_scale, width), Vec3(0, stories * story_scale, width), Vec3(0, 0, width), Vec3(width, 0, width));
   glPopMatrix();
 }
-
+*/
 static void draw_quad(float shade, Vec3 p1, Vec3 p2, Vec3 p3, Vec3 p4) {
   glBegin(GL_QUADS);
 
   GLint location = glGetAttribLocation(shaderprogram, "in_Color");
   glVertexAttrib1f(location, shade);
   glBindAttribLocation(shaderprogram, location, "in_Color");
-  Vec3 *a = new Vec3(p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
-  Vec3 *b = new Vec3(p3.x - p1.x, p3.y - p1.y, p3.z - p1.z);
   location = glGetAttribLocation(shaderprogram, "v1");
-  glVertexAttrib3f(location, a->x, a->y, a->z);
+  glVertexAttrib3f(location, p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
   glBindAttribLocation(shaderprogram, location, "v1");
   location = glGetAttribLocation(shaderprogram, "v2");
-  glVertexAttrib3f(location, b->x, b->y, b->z);
+  glVertexAttrib3f(location, p3.x - p1.x, p3.y - p1.y, p3.z - p1.z);
   glBindAttribLocation(shaderprogram, location, "v2");
 
   glVertex3f(p1.x, p1.y, p1.z);
@@ -174,9 +244,6 @@ static void draw_quad(float shade, Vec3 p1, Vec3 p2, Vec3 p3, Vec3 p4) {
   glVertex3f(p4.x, p4.y, p4.z);
 
   glEnd();
-
-  free(a);
-  free(b);
 }
 
 static void update() {
@@ -190,6 +257,30 @@ static void update() {
   }
   if(look.y < -pi / 2) {
     look.y = -pi / 2;
+  }
+  if(keys[SDLK_PERIOD]) {
+    for(int i = 0; i < 10; ++i)
+      for(int j = 0; j < 10; ++j) {
+        Vec2 doorpos;
+        if(buildings[i][j].facing == 0) {
+          doorpos.y = i * 15 - 75 - 4.5;
+          doorpos.x = j * 15 - 75;
+        }
+        else if(buildings[i][j].facing == 2) {
+          doorpos.y = i * 15 - 75 + 4.5;
+          doorpos.x = j * 15 - 75;
+        }
+        else if(buildings[i][j].facing == 1) {
+          doorpos.y = i * 15 - 75;
+          doorpos.x = j * 15 - 75 - 4.5;
+        }
+        else if(buildings[i][j].facing == 3) {
+          doorpos.y = i * 15 - 75;
+          doorpos.x = j * 15 - 75 + 4.5;
+        }
+        if(abs(playerpos.x - doorpos.x) < 1.0f && abs(playerpos.y - doorpos.y) < 1.0f)
+          buildings[i][j].open = true;
+      }
   }
   Vec2 acc;
   if(keys[SDLK_COMMA]){
@@ -211,17 +302,32 @@ static void update() {
   }
   acc.normalize();
   if(keys[SDLK_LSHIFT])
-    acc.multiply(0.1f);
+    acc.multiply(0.07f);
   else
-    acc.multiply(0.01f);
+    acc.multiply(0.03f);
   playervel.multiply(0.85f);
   playervel.add(&acc);
   playerpos.add(&playervel);
+  for(int i = 0; i < 10; ++i)
+    for(int j = 0; j < 10; ++j)
+      if(playerpos.x + 4.5 < i * 15 - 75 + 9 && playerpos.x + 4.5 > i * 15 - 75 && playerpos.y + 4.5 > j * 15 - 75 && playerpos.y + 4.5 < j * 15 - 75 + 9) {
+        playervel.nonzero();
+        playervel.multiply(-0.1f);
+        while(playerpos.x + 4.5 < i * 15 - 75 + 9 && playerpos.x + 4.5 > i * 15 - 75 && playerpos.y + 4.5 > j * 15 - 75 && playerpos.y + 4.5 < j * 15 - 75 + 9) {
+          playerpos.add(&playervel);
+        }
+      }
+/*  if((int)abs(playerpos.x + 4.5) % 15 < 9 && (int)abs(playerpos.y + 4.5) % 15 < 9) {
+    playervel.multiply(-0.1f);
+    while((int)abs(playerpos.x + 4.5) % 15 < 9 && (int)abs(playerpos.y + 4.5) % 15 < 9) {
+      playerpos.add(&playervel);
+    }
+  } */
+
   glPerspective(45.0f, (GLfloat) SCREEN_WIDTH / (GLfloat) SCREEN_HEIGHT, 0.1f, 100.0f);
-  gluLookAt(playerpos.x, 1.5f, playerpos.y,
-            playerpos.x + cos(look.x), 1.5f + sin(look.y) * 2, playerpos.y - sin(look.x),
+  gluLookAt(playerpos.x, 2.0f, playerpos.y,
+            playerpos.x + cos(look.x), 2.0f + sin(look.y) * 2, playerpos.y - sin(look.x),
             0.0f, 1.0f, 0.0f);
-//  gluLookAt(-1.0f, 0.0f, -1.0f, 0.5f, 0.5f, 1.0f, 0.0f, 1.0f, 0.0f);
   glMatrixMode(GL_MODELVIEW);
 }
 
@@ -273,14 +379,10 @@ static void cleanup() {
 static void init_shaders() {
   shaderprogram = glCreateProgram();
 
-  /* These pointers will receive the contents of our shader source code files */
-//  const GLchar *vertexsource[] = { "varying vec3 vertColor; void main(){ gl_Position = gl_ModelViewProjectionMatrix*gl_Vertex; vertColor = vec4(0.6, 0.3, 0.4, 1.0); } " };
-//  const GLchar *fragmentsource[] =  { "varying vec4 vertColor; void main(){ gl_FragColor = vertColor; }" };
   const GLchar **fragmentsource;
   const GLchar **vertexsource;
   GLint vertexlengths[1], fragmentlengths[1];
 
-  /* These are handles used to reference the shaders */
   GLuint vertexshader, fragmentshader;
 
   vertexshader = glCreateShader(GL_VERTEX_SHADER);
@@ -297,32 +399,20 @@ static void init_shaders() {
   source = filetobuf("src/screen.frag");
   fragmentsource[0] = (char *)source->data();
   fragmentlengths[0] = source->size();
+  free(source);
 
   glShaderSource(vertexshader, 1, vertexsource, vertexlengths); 
   glShaderSource(fragmentshader, 1, fragmentsource, fragmentlengths);
 
   glCompileShader(vertexshader);
-//  GLint status;
   GLsizei length;
   GLchar infoLog[256];
-/*  glGetShaderiv(vertexshader, GL_COMPILE_STATUS, &status);
-  if(status == GL_FALSE) {
-    fprintf(stderr, "Couldn't compile vertex shader.\n");
-    fflush(stdout);
-    exit(-1);
-  } */
   glGetShaderInfoLog(vertexshader, 255, &length, infoLog);
   if(length != 0) {
     printf("%s\n", infoLog);
   }
 
   glCompileShader(fragmentshader);
-/*  glGetShaderiv(fragmentshader, GL_COMPILE_STATUS, &status);
-  if(status == GL_FALSE) {
-    fprintf(stderr, "Couldn't compile fragment shader.\n");
-    fflush(stdout);
-    exit(-1);
-  } */
   glGetShaderInfoLog(fragmentshader, 255, &length, infoLog);
   if(length != 0) {
     printf("%s\n", infoLog);
@@ -350,6 +440,26 @@ static void glPerspective(GLdouble fovY, GLdouble aspect, GLdouble zNear, GLdoub
 static void init() {
   srand(time(NULL));
 
+  for(int i = 0; i < 10; ++i)
+    for(int j = 0; j < 10; ++j) {
+      int stories = 0;
+      if(j != 0)
+        stories = buildings[i][j - 1].stories;
+      else if(i != 0)
+        stories = buildings[i - 1][j].stories;
+      else
+        stories = 11;
+
+      stories += rand() % 16 - 8;
+
+      if(stories < 3)
+        stories = 3;
+      else if(stories > 25)
+        stories = 25;
+
+      buildings[i][j] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(i * 15 - 75, j * 15 - 75), stories, rand() % 4);
+    }
+
   SDL_Init(SDL_INIT_EVERYTHING);
 
   if(fullscreen)
@@ -371,19 +481,18 @@ static void init() {
   glClearColor(0.01f, 0.01f, 0.01f, 0.0f);
   glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-  SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-  SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+//  SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+//  SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  glPerspective(45.0f, (GLfloat) SCREEN_WIDTH / (GLfloat) SCREEN_HEIGHT, 0.1f, 100.0f);
+  glPerspective(45.0f, (GLfloat) SCREEN_WIDTH / (GLfloat) SCREEN_HEIGHT, 0.1f, 200.0f);
   glMatrixMode(GL_MODELVIEW);
 
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
-  glEnable(GL_TEXTURE_2D);
-  glEnable(GL_MULTISAMPLE);
-  glEnable(GL_CULL_FACE);
+//  glEnable(GL_MULTISAMPLE);
+  glDisable(GL_CULL_FACE);
   glShadeModel(GL_SMOOTH);  
 
   init_shaders();
