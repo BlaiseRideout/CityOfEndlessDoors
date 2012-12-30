@@ -191,9 +191,7 @@ static bool             fullscreen = false;
 static bool             sound = true;
 static Building         buildings[10][10];
 static Mix_Music*       steps;
-static Mix_Music*       locked;
-static Mix_Music*       unlocked;
-static int              probability = 1;
+static int              probability = 20;
 
 static void draw_stuff() {
   draw_quad(.3f, Vec3(playerpos.x - 200, 0, playerpos.y - 200), Vec3(playerpos.x - 200, 0, playerpos.y + 200), Vec3(playerpos.x + 200, 0, playerpos.y + 200), Vec3(playerpos.x + 200, 0, playerpos.y - 200));
@@ -293,13 +291,7 @@ static void update() {
           doorpos.y = buildings[i][j].pos.y;
         }
         if(abs(playerpos.x - doorpos.x) < 1.0f && abs(playerpos.y - doorpos.y) < 1.0f) {
-          if(buildings[i][j].locked) {
-            Mix_PlayMusic(locked, 1);
-          }
-          else {
-            buildings[i][j].open = true;
-            Mix_PlayMusic(unlocked, 1);
-          }
+          buildings[i][j].open = !buildings[i][j].locked;
         }
       }
   }
@@ -613,10 +605,10 @@ static void init() {
 
   init_shaders();
 
-//  if(sound) {
+  if(sound) {
     Mix_OpenAudio(22050, AUDIO_S16, 1, 256);
     load_music();
-//  }
+  }
 
   while(SDL_PollEvent(&event));
 }
@@ -624,12 +616,6 @@ static void init() {
 static void load_music() {
   steps = Mix_LoadMUS("res/steps.wav");
   if(!steps)
-    printf("%s\n", Mix_GetError());
-  locked = Mix_LoadMUS("res/locked.wav");
-  if(!locked)
-    printf("%s\n", Mix_GetError());
-  unlocked = Mix_LoadMUS("res/unlocked.wav");
-  if(!unlocked)
     printf("%s\n", Mix_GetError());
 //  Mix_PlayMusic(steps, -1);
 }
