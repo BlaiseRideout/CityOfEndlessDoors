@@ -30,10 +30,6 @@ struct Vec3 {
     z /= length;
   }
 
-  Vec3 *cross(Vec3 *v2) {
-    return new Vec3(y * v2->z - z * v2->y, z * v2->x - x * v2->z, x * v2->y - y * v2->x);
-  }
-
   Vec3(float x, float y, float z) {
     this->x = x;
     this->y = y;
@@ -84,8 +80,8 @@ struct Vec2 {
 };
 
 static void     draw_stuff();
-static void     draw_building(float shade, float windowshade, int stories, float x, float z);
-static void     draw_quad(float shade, Vec3 *p1, Vec3 *p2, Vec3 *p3, Vec3 *p4);
+static void     draw_building(float shade, float windowshade, int facing, int stories, float x, float z);
+static void     draw_quad(float shade, Vec3 p1, Vec3 p2, Vec3 p3, Vec3 p4);
 static void     update();
 static void     handle_input();
 static void     clear_screen();
@@ -107,104 +103,123 @@ static int              keys[323] = { 0 };
 static Vec2             mrel;
 static Vec2             playerpos(3.0f, -7.0f);
 static Vec2             playervel(0.0f, 0.0f);
-static Vec2             look(-1.5f, 1.5f);
+static Vec2             look(-1.5f, 0.0f);
 static bool             running = true;
 static bool             fullscreen = false;
 static bool             sound = false;
 
 static void draw_stuff() {
-  draw_quad(.3f, new Vec3(playerpos.x - 200, 0, playerpos.y - 200), new Vec3(playerpos.x - 200, 1, playerpos.y + 200), new Vec3(playerpos.x + 200, 0, playerpos.y + 200), new Vec3(playerpos.x + 200, 0, playerpos.y - 200));
-  draw_building(.5f, 0.9f, 10, 0.0f, 0.0f);
+  draw_quad(.3f, Vec3(playerpos.x - 200, 0, playerpos.y - 200), Vec3(playerpos.x - 200, 1, playerpos.y + 200), Vec3(playerpos.x + 200, 0, playerpos.y + 200), Vec3(playerpos.x + 200, 0, playerpos.y - 200));
+  for(int i = -5; i < 5; ++i)
+    for(int j = -5; j < 5; ++j)
+      draw_building(.5f, 0.9f, (int)i % 4, 10, i * 20, j * 20);
+//  draw_building(.5f, 0.9f, 0, 10, 0, 0);
 }
 
-static void draw_building(float shade, float windowshade, int stories, float x, float z) {
+static void draw_building(float shade, float windowshade, int facing, int stories, float x, float z) {
+  glPushMatrix();
+  glTranslatef(x, 0, z);
+  glRotatef(facing * 90.0f, 0.0f, 1.0f, 0.0f);
+  glTranslatef(-4.5f, 0, -4.5f);
   const float story_scale = 2.0f;
   const float width = 9.0f;
   for(float i = 0; i < width; i+=width / 9) {
-    draw_quad(shade, new Vec3(x + i, story_scale * 1.5, z), new Vec3(x + i, stories * story_scale, z), new Vec3(x + i + width / 9, stories * story_scale, z), new Vec3(x + i + width / 9, story_scale * 1.5, z));
+    draw_quad(shade, Vec3(i, story_scale * 1.5, 0), Vec3(i, stories * story_scale, 0), Vec3(i + width / 9, stories * story_scale, 0), Vec3(i + width / 9, story_scale * 1.5, 0));
     i += width / 9;
     if(i < width) {
       for(float j = story_scale * 1.5; j + story_scale * 3 / 4 < stories * story_scale; j+=story_scale) {
-        draw_quad(shade, new Vec3(x + i, j + story_scale * 3 / 4, z), new Vec3(x + i, j + story_scale * 5 / 4, z), new Vec3(x + i + width / 9, j + story_scale * 5 / 4, z), new Vec3(x + i + width / 9, j + story_scale * 3 / 4, z));
+        draw_quad(shade, Vec3(i, j + story_scale * 3 / 4, 0), Vec3(i, j + story_scale * 5 / 4, 0), Vec3(i + width / 9, j + story_scale * 5 / 4, 0), Vec3(i + width / 9, j + story_scale * 3 / 4, 0));
 
-        draw_quad(shade, new Vec3(x + i, j + story_scale / 4, z + 0.1f), new Vec3(x + i, j + story_scale / 4, z), new Vec3(x + i, j + story_scale * 3 / 4, z), new Vec3(x + i, j + story_scale * 3 / 4, z + 0.1f));
-        draw_quad(shade, new Vec3(x + i + width / 9, j + story_scale / 4, z), new Vec3(x + i + width / 9, j + story_scale / 4, z + 0.1f), new Vec3(x + i + width / 9, j + story_scale * 3 / 4, z + 0.1f), new Vec3(x + i + width / 9, j + story_scale * 3 / 4, z));
+        draw_quad(shade, Vec3(i, j + story_scale / 4, 0.1f), Vec3(i, j + story_scale / 4, 0), Vec3(i, j + story_scale * 3 / 4, 0), Vec3(i, j + story_scale * 3 / 4, 0.1f));
+        draw_quad(shade, Vec3(i + width / 9, j + story_scale / 4, 0), Vec3(i + width / 9, j + story_scale / 4, 0.1f), Vec3(i + width / 9, j + story_scale * 3 / 4, 0.1f), Vec3(i + width / 9, j + story_scale * 3 / 4, 0));
 
-        draw_quad(shade, new Vec3(x + i, j + story_scale * 3 / 4, z + 0.1f), new Vec3(x + i, j + story_scale * 3 / 4, z), new Vec3(x + i + width / 9, j + story_scale * 3 / 4, z), new Vec3(x + i + width / 9, j + story_scale * 3 / 4, z + 0.1f));
+        draw_quad(shade, Vec3(i, j + story_scale * 3 / 4, 0.1f), Vec3(i, j + story_scale * 3 / 4, 0), Vec3(i + width / 9, j + story_scale * 3 / 4, 0), Vec3(i + width / 9, j + story_scale * 3 / 4, 0.1f));
 
-        draw_quad(windowshade, new Vec3(x + i, j + story_scale / 4, z + 0.1f), new Vec3(x + i, j + story_scale * 3 / 4, z + 0.1f), new Vec3(x + i + width / 9, j + story_scale * 3 / 4, z + 0.1f), new Vec3(x + i + width / 9, j + story_scale / 4, z + 0.1f));
+        draw_quad(windowshade, Vec3(i, j + story_scale / 4, 0.1f), Vec3(i, j + story_scale * 3 / 4, 0.1f), Vec3(i + width / 9, j + story_scale * 3 / 4, 0.1f), Vec3(i + width / 9, j + story_scale / 4, 0.1f));
       }
-      draw_quad(shade, new Vec3(x + i, stories * story_scale - story_scale / 4, z), new Vec3(x + i, stories * story_scale, z), new Vec3(x + i + width / 9, stories * story_scale, z), new Vec3(x + i + width / 9, stories * story_scale - story_scale / 4, z));
+      draw_quad(shade, Vec3(i, stories * story_scale - story_scale / 4, 0), Vec3(i, stories * story_scale, 0), Vec3(i + width / 9, stories * story_scale, 0), Vec3(i + width / 9, stories * story_scale - story_scale / 4, 0));
     }
   }
-  draw_quad(shade, new Vec3(x, 0, z), new Vec3(x, story_scale * 1.75, z), new Vec3(x + width * 4 / 9, story_scale * 1.75, z), new Vec3(x + width * 4 / 9, 0, z));
-  draw_quad(shade, new Vec3(x + width, 0, z), new Vec3(x + width, story_scale * 1.75, z), new Vec3(x + width * 4 / 9, story_scale * 1.75, z), new Vec3(x + width * 4 / 9, 0, z));
-//  draw_quad(shade, new Vec3(x, 0, z), new Vec3(x, stories * story_scale, z), new Vec3(x + width, stories * story_scale, z), new Vec3(x + width, 0, z));
-  draw_quad(shade, new Vec3(x, 0, z), new Vec3(x, 0, z + width), new Vec3(x, stories * story_scale, z + width), new Vec3(x, stories * story_scale, z));
-  draw_quad(shade, new Vec3(x + width, 0, z), new Vec3(x + width, stories * story_scale, z), new Vec3(x + width, stories * story_scale, z + width), new Vec3(x + width, 0, z + width));
-  draw_quad(shade, new Vec3(x + width, stories * story_scale, z + width), new Vec3(x, stories * story_scale, z + width), new Vec3(x, 0, z + width), new Vec3(x + width, 0, z + width));
+  draw_quad(shade, Vec3(0, 0, 0), Vec3(0, story_scale * 1.75, 0), Vec3(width * 4 / 9, story_scale * 1.75, 0), Vec3(width * 4 / 9, 0, 0));
+  draw_quad(shade, Vec3(width * 5 / 9, 0, 0), Vec3(width * 5 / 9, story_scale * 1.75, 0), Vec3(width, story_scale * 1.75, 0), Vec3(width, 0, 0));
+  draw_quad(shade, Vec3(width * 4 / 9, 0, 0.1f), Vec3(width * 4 / 9, story_scale * 1.5, 0.1f), Vec3(width * 5 / 9, story_scale * 1.5, 0.1f), Vec3(width * 5 / 9, 0, 0.1f));
+  draw_quad(shade, Vec3(width * 4 / 9, 0, 0.1f), Vec3(width * 4 / 9, 0, 0), Vec3(width * 4 / 9, story_scale * 1.5, 0), Vec3(width * 4 / 9, story_scale * 1.5, 0.1f));
+  draw_quad(shade, Vec3(width * 5 / 9, 0, 0), Vec3(width * 5 / 9, 0, 0.1f), Vec3(width * 5 / 9, story_scale * 1.5, 0.1f), Vec3(width * 5 / 9, story_scale * 1.5, 0));
+  draw_quad(shade, Vec3(width * 4 / 9, story_scale * 1.5, 0.1f), Vec3(width * 4 / 9, story_scale * 1.5, 0), Vec3(width * 5 / 9, story_scale * 1.5, 0), Vec3(width * 5 / 9, story_scale * 1.5, 0.1f));
+
+  draw_quad(shade, Vec3(0, 0, 0), Vec3(0, 0, width), Vec3(0, stories * story_scale, width), Vec3(0, stories * story_scale, 0));
+  draw_quad(shade, Vec3(width, 0, 0), Vec3(width, stories * story_scale, 0), Vec3(width, stories * story_scale, width), Vec3(width, 0, width));
+  draw_quad(shade, Vec3(width, stories * story_scale, width), Vec3(0, stories * story_scale, width), Vec3(0, 0, width), Vec3(width, 0, width));
+  glPopMatrix();
 }
 
-static void draw_quad(float shade, Vec3 *p1, Vec3 *p2, Vec3 *p3, Vec3 *p4) {
-  glUseProgram(shaderprogram);
+static void draw_quad(float shade, Vec3 p1, Vec3 p2, Vec3 p3, Vec3 p4) {
   glBegin(GL_QUADS);
 
   GLint location = glGetAttribLocation(shaderprogram, "in_Color");
   glVertexAttrib1f(location, shade);
   glBindAttribLocation(shaderprogram, location, "in_Color");
-  location = glGetAttribLocation(shaderprogram, "normal");
-  Vec3 *a = new Vec3(p2->x - p1->x, p2->y - p1->y, p2->z - p1->z);
-  Vec3 *b = new Vec3(p3->x - p1->x, p3->y - p1->y, p3->z - p1->z);
-  Vec3 *normal = b->cross(a);
-  glVertexAttrib3f(location, normal->x, normal->y, normal->z);
-  glBindAttribLocation(shaderprogram, location, "normal");
-  location = glGetAttribLocation(shaderprogram, "eye");
-  glVertexAttrib3f(location, playerpos.x, 1.5f, playerpos.y);
-  glBindAttribLocation(shaderprogram, location, "eye");
+  Vec3 *a = new Vec3(p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
+  Vec3 *b = new Vec3(p3.x - p1.x, p3.y - p1.y, p3.z - p1.z);
+  location = glGetAttribLocation(shaderprogram, "v1");
+  glVertexAttrib3f(location, a->x, a->y, a->z);
+  glBindAttribLocation(shaderprogram, location, "v1");
+  location = glGetAttribLocation(shaderprogram, "v2");
+  glVertexAttrib3f(location, b->x, b->y, b->z);
+  glBindAttribLocation(shaderprogram, location, "v2");
 
-  glVertex3f(p1->x, p1->y, p1->z);
-  glVertex3f(p2->x, p2->y, p2->z);
-  glVertex3f(p3->x, p3->y, p3->z);
-  glVertex3f(p4->x, p4->y, p4->z);
+  glVertex3f(p1.x, p1.y, p1.z);
+  glVertex3f(p2.x, p2.y, p2.z);
+  glVertex3f(p3.x, p3.y, p3.z);
+  glVertex3f(p4.x, p4.y, p4.z);
 
   glEnd();
 
   free(a);
   free(b);
-  free(normal);
 }
 
 static void update() {
+  const float pi = 3.14159265358979323846264338327950288;
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  look.x += mrel.x / 300.0f ;
-  look.y += mrel.y / 300.0f;
+  look.x += mrel.x / 300.0f;
+  look.y += mrel.y / 400.0f;
+  if(look.y > pi / 2) {
+    look.y = pi / 2;
+  }
+  if(look.y < -pi / 2) {
+    look.y = -pi / 2;
+  }
   Vec2 acc;
   if(keys[SDLK_COMMA]){
     acc.x += cos(look.x);
     acc.y -= sin(look.x);
   }
-  else if(keys[SDLK_o] == 1) {
+  else if(keys[SDLK_o]) {
     acc.x -= cos(look.x);
     acc.y += sin(look.x);
   }
 
-  if(keys[SDLK_a] == 1) {
+  if(keys[SDLK_a]) {
     acc.x -= sin(look.x);
     acc.y -= cos(look.x);
   }
-  else if(keys[SDLK_e] == 1) {
+  else if(keys[SDLK_e]) {
     acc.x += sin(look.x);
     acc.y += cos(look.x);
   }
   acc.normalize();
-  acc.multiply(0.01f);
+  if(keys[SDLK_LSHIFT])
+    acc.multiply(0.1f);
+  else
+    acc.multiply(0.01f);
   playervel.multiply(0.85f);
   playervel.add(&acc);
   playerpos.add(&playervel);
   glPerspective(45.0f, (GLfloat) SCREEN_WIDTH / (GLfloat) SCREEN_HEIGHT, 0.1f, 100.0f);
   gluLookAt(playerpos.x, 1.5f, playerpos.y,
-            playerpos.x + cos(look.x), look.y, playerpos.y - sin(look.x),
+            playerpos.x + cos(look.x), 1.5f + sin(look.y) * 2, playerpos.y - sin(look.x),
             0.0f, 1.0f, 0.0f);
 //  gluLookAt(-1.0f, 0.0f, -1.0f, 0.5f, 0.5f, 1.0f, 0.0f, 1.0f, 0.0f);
   glMatrixMode(GL_MODELVIEW);
@@ -321,6 +336,7 @@ static void init_shaders() {
 
   free(fragmentsource);
   free(vertexsource);
+  glUseProgram(shaderprogram);
 }
 
 static void glPerspective(GLdouble fovY, GLdouble aspect, GLdouble zNear, GLdouble zFar) {

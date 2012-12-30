@@ -1,5 +1,6 @@
 attribute float in_Color;
-attribute vec3 normal;
+//attribute vec3 normal;
+attribute vec3 v1, v2;
 //attribute vec3 eye;
 
 //varying vec3 n, view;
@@ -7,11 +8,11 @@ varying vec4 vertColor;
 
 void main(){
 //  view =  eye - vec3(gl_Position);
-  gl_Position = ftransform();
+  gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * gl_Vertex;
 
-  vec3 normal = normalize(normal);
+  vec3 normal = normalize(cross(v2, v1));
 
-  vec3 lightDir = normalize(vec3(1.0f, -1.0f, 0.5f));
+  vec3 lightDir = normalize(vec3(1.0, -1.0, 0.5));
 //  pnormal = normalize(normal);
 //  n = normalize(normal);
 //  HV =  - lightDir;
@@ -25,5 +26,5 @@ void main(){
 
   float shade = NdotL * in_Color * 0.9;
 //  shade = specular * shade;
-  vertColor = vec4(0.1 + shade, 0.1 + shade, 0.1 + shade, 1.0f);
+  vertColor = vec4(0.1 + shade, 0.1 + shade, 0.1 + shade, 1.0);
 }
