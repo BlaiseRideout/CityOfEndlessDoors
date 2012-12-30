@@ -103,6 +103,7 @@ struct Building {
   int facing;
   float shade;
   float windowshade;
+  bool locked;
   bool open;
 
   void draw() {
@@ -132,7 +133,7 @@ struct Building {
     draw_quad(shade, Vec3(0, 0, 0), Vec3(0, story_scale * 1.75, 0), Vec3(width * 4 / 9, story_scale * 1.75, 0), Vec3(width * 4 / 9, 0, 0));
     draw_quad(shade, Vec3(width * 5 / 9, 0, 0), Vec3(width * 5 / 9, story_scale * 1.75, 0), Vec3(width, story_scale * 1.75, 0), Vec3(width, 0, 0));
     if(open) {
-
+      draw_quad(shade, Vec3(0, story_scale * 1.75, 0), Vec3(0, story_scale * 1.75, width), Vec3(width, story_scale * 1.75, width), Vec3(width, story_scale * 1.75, 0));
     }
     else {
       draw_quad(shade, Vec3(width * 4 / 9, 0, 0.1f), Vec3(width * 4 / 9, story_scale * 1.5, 0.1f), Vec3(width * 5 / 9, story_scale * 1.5, 0.1f), Vec3(width * 5 / 9, 0, 0.1f));
@@ -146,12 +147,14 @@ struct Building {
     glPopMatrix();
   }
 
-  Building(float shade, float windowshade, Vec2 pos, int stories, int facing) {
+  Building(float shade, float windowshade, Vec2 pos, int stories, int facing, bool locked) {
     this->shade = shade;
     this->windowshade = windowshade;
     this->pos = pos;
     this->stories = stories;
     this->facing = facing % 4;
+    this->locked = locked;
+    this->open = false;
   }
 
   Building() {
@@ -161,11 +164,13 @@ struct Building {
     this->pos.y = 0.0f;
     this->stories = 0;
     this->facing = 0;
+    this->locked = true;
+    this->open = false;
   }
 };
 
 static GLuint           shaderprogram;
-static unsigned int     SCREEN_BPP = 32;
+static unsigned int     SCREEN_BPP = 24;
 static unsigned int     SCREEN_WIDTH = 1366;
 static unsigned int     SCREEN_HEIGHT = 768;
 static SDL_Surface*     screen = NULL;
@@ -263,25 +268,116 @@ static void update() {
       for(int j = 0; j < 10; ++j) {
         Vec2 doorpos;
         if(buildings[i][j].facing == 0) {
-          doorpos.y = i * 15 - 75 - 4.5;
-          doorpos.x = j * 15 - 75;
+          doorpos.x = buildings[i][j].pos.x;
+          doorpos.y = buildings[i][j].pos.y - 4.5;
         }
         else if(buildings[i][j].facing == 2) {
-          doorpos.y = i * 15 - 75 + 4.5;
-          doorpos.x = j * 15 - 75;
+          doorpos.x = buildings[i][j].pos.x;
+          doorpos.y = buildings[i][j].pos.y + 4.5;
         }
         else if(buildings[i][j].facing == 1) {
-          doorpos.y = i * 15 - 75;
-          doorpos.x = j * 15 - 75 - 4.5;
+          doorpos.x = buildings[i][j].pos.x - 4.5;
+          doorpos.y = buildings[i][j].pos.y;
         }
         else if(buildings[i][j].facing == 3) {
-          doorpos.y = i * 15 - 75;
-          doorpos.x = j * 15 - 75 + 4.5;
+          doorpos.x = buildings[i][j].pos.x + 4.5;
+          doorpos.y = buildings[i][j].pos.y;
         }
         if(abs(playerpos.x - doorpos.x) < 1.0f && abs(playerpos.y - doorpos.y) < 1.0f)
-          buildings[i][j].open = true;
+          buildings[i][j].open = !buildings[i][j].locked;
       }
   }
+  if(buildings[0][0].pos.x + 4.5 < playerpos.x - 75) {
+    for(int i = 1; i < 10; ++i)
+      for(int j = 0; j < 10; ++j) {
+        buildings[i - 1][j] = buildings[i][j];
+      }
+    for(int i = 0; i < 10; ++i) {
+      int stories = 0;
+      if(i == 0)
+        stories = buildings[8][i].stories;
+      else 
+        stories = buildings[9][i - 1].stories;
+
+      stories += rand() % 16 - 8;
+
+      if(stories < 3)
+        stories = 3;
+      else if(stories > 25)
+        stories = 25;
+
+      buildings[9][i] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(buildings[8][i].pos.x + 15, buildings[8][i].pos.y), stories, rand() % 4, rand() % 20 != 5);
+    }
+  }
+  else if(buildings[9][9].pos.x - 4.5 > playerpos.x + 75) {
+    for(int i = 8; i > -1; i--)
+      for(int j = 0; j < 10; ++j) {
+        buildings[i + 1][j] = buildings[i][j];
+      }
+    for(int i = 0; i < 10; ++i) {
+      int stories = 0;
+      if(i == 0)
+        stories = buildings[1][i].stories;
+      else 
+        stories = buildings[0][i - 1].stories;
+
+      stories += rand() % 16 - 8;
+
+      if(stories < 3)
+        stories = 3;
+      else if(stories > 25)
+        stories = 25;
+
+      buildings[0][i] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(buildings[1][i].pos.x - 15, buildings[1][i].pos.y), stories, rand() % 4, rand() % 20 != 5);
+    }
+  }
+  else if(buildings[0][0].pos.y + 4.5 < playerpos.y - 75) {
+    for(int i = 1; i < 10; ++i)
+      for(int j = 0; j < 10; ++j) {
+        buildings[j][i - 1] = buildings[j][i];
+      }
+    for(int i = 0; i < 10; ++i) {
+      int stories = 0;
+      if(i == 0)
+        stories = buildings[i][8].stories;
+      else
+        stories = buildings[i - 1][9].stories;
+
+      stories += rand() % 16 - 8;
+
+      if(stories < 3)
+        stories = 3;
+      else if(stories > 25)
+        stories = 25;
+
+      buildings[i][9] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(buildings[i][8].pos.x, buildings[i][8].pos.y + 15), stories, rand() % 4, rand() % 20 != 5);
+    }
+  }
+  else if(buildings[9][9].pos.y - 4.5 > playerpos.y + 75) {
+    for(int i = 8; i > -1; i--)
+      for(int j = 0; j < 10; ++j) {
+        buildings[j][i + 1] = buildings[j][i];
+      }
+    for(int i = 0; i < 10; ++i) {
+      int stories = 0;
+      if(i == 0)
+        stories = buildings[i][1].stories;
+      else
+        stories = buildings[i - 1][0].stories;
+
+      stories += rand() % 16 - 8;
+
+      if(stories < 3)
+        stories = 3;
+      else if(stories > 25)
+        stories = 25;
+
+      buildings[i][0] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(buildings[i][1].pos.x, buildings[i][1].pos.y - 15), stories, rand() % 4, rand() % 20 != 5);
+    }
+  }
+
+
+
   Vec2 acc;
   if(keys[SDLK_COMMA]){
     acc.x += cos(look.x);
@@ -310,10 +406,10 @@ static void update() {
   playerpos.add(&playervel);
   for(int i = 0; i < 10; ++i)
     for(int j = 0; j < 10; ++j)
-      if(playerpos.x + 4.5 < i * 15 - 75 + 9 && playerpos.x + 4.5 > i * 15 - 75 && playerpos.y + 4.5 > j * 15 - 75 && playerpos.y + 4.5 < j * 15 - 75 + 9) {
+      if(playerpos.x + 4.5 < buildings[i][j].pos.x + 9 && playerpos.x + 4.5 > buildings[i][j].pos.x && playerpos.y + 4.5 > buildings[i][j].pos.y && playerpos.y + 4.5 < buildings[i][j].pos.y + 9) {
         playervel.nonzero();
         playervel.multiply(-0.1f);
-        while(playerpos.x + 4.5 < i * 15 - 75 + 9 && playerpos.x + 4.5 > i * 15 - 75 && playerpos.y + 4.5 > j * 15 - 75 && playerpos.y + 4.5 < j * 15 - 75 + 9) {
+        while(playerpos.x + 4.5 < buildings[i][j].pos.x + 9 && playerpos.x + 4.5 > buildings[i][j].pos.x && playerpos.y + 4.5 > buildings[i][j].pos.y && playerpos.y + 4.5 < buildings[i][j].pos.y + 9) {
           playerpos.add(&playervel);
         }
       }
@@ -457,7 +553,7 @@ static void init() {
       else if(stories > 25)
         stories = 25;
 
-      buildings[i][j] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(i * 15 - 75, j * 15 - 75), stories, rand() % 4);
+      buildings[i][j] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(i * 15 - 75, j * 15 - 75), stories, rand() % 4, rand() % 20 != 5);
     }
 
   SDL_Init(SDL_INIT_EVERYTHING);
@@ -499,7 +595,7 @@ static void init() {
 
   if(sound) {
     Mix_OpenAudio(44100, AUDIO_S16, 2, 256);
-//    load_music();
+    load_music();
 //    Mix_PlayMusic(music, 0);
   }
 
