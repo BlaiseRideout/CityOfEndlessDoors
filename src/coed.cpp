@@ -95,6 +95,7 @@ static void     cleanup();
 static void     init_shaders();
 static void     glPerspective(GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble zFar);
 static void     init();
+static void     load_music();
 static string*  filetobuf(const char *file);
 
 struct Building {
@@ -134,6 +135,10 @@ struct Building {
     draw_quad(shade, Vec3(width * 5 / 9, 0, 0), Vec3(width * 5 / 9, story_scale * 1.75, 0), Vec3(width, story_scale * 1.75, 0), Vec3(width, 0, 0));
     if(open) {
       draw_quad(shade, Vec3(0, story_scale * 1.75, 0), Vec3(0, story_scale * 1.75, width), Vec3(width, story_scale * 1.75, width), Vec3(width, story_scale * 1.75, 0));
+      draw_quad(shade, Vec3(width * .5, 0, 0.75f), Vec3(width * .5, story_scale * 1.5, 0.75f), Vec3(width * 4 / 9, story_scale * 1.5, 0.1f), Vec3(width * 4 / 9, 0, 0.1f));
+      draw_quad(shade, Vec3(width * 4 / 9, 0, 0.1f), Vec3(width * 4 / 9, 0, 0), Vec3(width * 4 / 9, story_scale * 1.5, 0), Vec3(width * 4 / 9, story_scale * 1.5, 0.1f));
+      draw_quad(shade, Vec3(width * 5 / 9, 0, 0), Vec3(width * 5 / 9, 0, 0.1f), Vec3(width * 5 / 9, story_scale * 1.5, 0.1f), Vec3(width * 5 / 9, story_scale * 1.5, 0));
+      draw_quad(shade, Vec3(width * 4 / 9, story_scale * 1.5, 0.1f), Vec3(width * 4 / 9, story_scale * 1.5, 0), Vec3(width * 5 / 9, story_scale * 1.5, 0), Vec3(width * 5 / 9, story_scale * 1.5, 0.1f));
     }
     else {
       draw_quad(shade, Vec3(width * 4 / 9, 0, 0.1f), Vec3(width * 4 / 9, story_scale * 1.5, 0.1f), Vec3(width * 5 / 9, story_scale * 1.5, 0.1f), Vec3(width * 5 / 9, 0, 0.1f));
@@ -183,11 +188,15 @@ static Vec2             playervel(0.0f, 0.0f);
 static Vec2             look(-1.5f, 0.0f);
 static bool             running = true;
 static bool             fullscreen = false;
-static bool             sound = false;
+static bool             sound = true;
 static Building         buildings[10][10];
+static Mix_Music*       steps;
+static Mix_Music*       locked;
+static Mix_Music*       unlocked;
+static int              probability = 1;
 
 static void draw_stuff() {
-  draw_quad(.3f, Vec3(playerpos.x - 200, 0, playerpos.y - 200), Vec3(playerpos.x - 200, 1, playerpos.y + 200), Vec3(playerpos.x + 200, 0, playerpos.y + 200), Vec3(playerpos.x + 200, 0, playerpos.y - 200));
+  draw_quad(.3f, Vec3(playerpos.x - 200, 0, playerpos.y - 200), Vec3(playerpos.x - 200, 0, playerpos.y + 200), Vec3(playerpos.x + 200, 0, playerpos.y + 200), Vec3(playerpos.x + 200, 0, playerpos.y - 200));
   for(int i = 0; i < 10; ++i)
     for(int j = 0; j < 10; ++j)
       buildings[i][j].draw(); 
@@ -283,8 +292,15 @@ static void update() {
           doorpos.x = buildings[i][j].pos.x + 4.5;
           doorpos.y = buildings[i][j].pos.y;
         }
-        if(abs(playerpos.x - doorpos.x) < 1.0f && abs(playerpos.y - doorpos.y) < 1.0f)
-          buildings[i][j].open = !buildings[i][j].locked;
+        if(abs(playerpos.x - doorpos.x) < 1.0f && abs(playerpos.y - doorpos.y) < 1.0f) {
+          if(buildings[i][j].locked) {
+            Mix_PlayMusic(locked, 1);
+          }
+          else {
+            buildings[i][j].open = true;
+            Mix_PlayMusic(unlocked, 1);
+          }
+        }
       }
   }
   if(buildings[0][0].pos.x + 4.5 < playerpos.x - 75) {
@@ -306,7 +322,7 @@ static void update() {
       else if(stories > 25)
         stories = 25;
 
-      buildings[9][i] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(buildings[8][i].pos.x + 15, buildings[8][i].pos.y), stories, rand() % 4, rand() % 20 != 5);
+      buildings[9][i] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(buildings[8][i].pos.x + 15, buildings[8][i].pos.y), stories, rand() % 4, rand() % probability != 0);
     }
   }
   else if(buildings[9][9].pos.x - 4.5 > playerpos.x + 75) {
@@ -328,7 +344,7 @@ static void update() {
       else if(stories > 25)
         stories = 25;
 
-      buildings[0][i] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(buildings[1][i].pos.x - 15, buildings[1][i].pos.y), stories, rand() % 4, rand() % 20 != 5);
+      buildings[0][i] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(buildings[1][i].pos.x - 15, buildings[1][i].pos.y), stories, rand() % 4, rand() % probability != 0);
     }
   }
   else if(buildings[0][0].pos.y + 4.5 < playerpos.y - 75) {
@@ -350,7 +366,7 @@ static void update() {
       else if(stories > 25)
         stories = 25;
 
-      buildings[i][9] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(buildings[i][8].pos.x, buildings[i][8].pos.y + 15), stories, rand() % 4, rand() % 20 != 5);
+      buildings[i][9] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(buildings[i][8].pos.x, buildings[i][8].pos.y + 15), stories, rand() % 4, rand() % probability != 0);
     }
   }
   else if(buildings[9][9].pos.y - 4.5 > playerpos.y + 75) {
@@ -372,11 +388,9 @@ static void update() {
       else if(stories > 25)
         stories = 25;
 
-      buildings[i][0] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(buildings[i][1].pos.x, buildings[i][1].pos.y - 15), stories, rand() % 4, rand() % 20 != 5);
+      buildings[i][0] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(buildings[i][1].pos.x, buildings[i][1].pos.y - 15), stories, rand() % 4, rand() % probability != 0);
     }
   }
-
-
 
   Vec2 acc;
   if(keys[SDLK_COMMA]){
@@ -403,6 +417,12 @@ static void update() {
     acc.multiply(0.03f);
   playervel.multiply(0.85f);
   playervel.add(&acc);
+
+  if(playervel.x < .1 && playervel.y < .1)
+    Mix_FadeOutMusic(50);
+  else if(!Mix_PlayingMusic())
+    Mix_FadeInMusic(steps, -1, 50);
+
   playerpos.add(&playervel);
   for(int i = 0; i < 10; ++i)
     for(int j = 0; j < 10; ++j)
@@ -553,7 +573,7 @@ static void init() {
       else if(stories > 25)
         stories = 25;
 
-      buildings[i][j] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(i * 15 - 75, j * 15 - 75), stories, rand() % 4, rand() % 20 != 5);
+      buildings[i][j] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(i * 15 - 75, j * 15 - 75), stories, rand() % 4, rand() % probability != 0);
     }
 
   SDL_Init(SDL_INIT_EVERYTHING);
@@ -593,13 +613,25 @@ static void init() {
 
   init_shaders();
 
-  if(sound) {
-    Mix_OpenAudio(44100, AUDIO_S16, 2, 256);
+//  if(sound) {
+    Mix_OpenAudio(22050, AUDIO_S16, 1, 256);
     load_music();
-//    Mix_PlayMusic(music, 0);
-  }
+//  }
 
   while(SDL_PollEvent(&event));
+}
+
+static void load_music() {
+  steps = Mix_LoadMUS("res/steps.wav");
+  if(!steps)
+    printf("%s\n", Mix_GetError());
+  locked = Mix_LoadMUS("res/locked.wav");
+  if(!locked)
+    printf("%s\n", Mix_GetError());
+  unlocked = Mix_LoadMUS("res/unlocked.wav");
+  if(!unlocked)
+    printf("%s\n", Mix_GetError());
+//  Mix_PlayMusic(steps, -1);
 }
 
 static string *filetobuf(const char *file) {
