@@ -19,11 +19,19 @@ struct Vec3 {
   public:
     float x, y, z;
 
+  float length() {
+    return sqrt(x * x + y * y + z * z);
+  }
+
   void normalize() {
-    float length = sqrt(x * x + y * y + z * z);
+    float length = this->length();
     x /= length;
     y /= length;
     z /= length;
+  }
+
+  Vec3 *cross(Vec3 *v2) {
+    return new Vec3(y * v2->z - z * v2->y, z * v2->x - x * v2->z, x * v2->y - y * v2->x);
   }
 
   Vec3(float x, float y, float z) {
@@ -38,9 +46,11 @@ struct Vec2 {
     float x, y;
 
   void normalize() {
-    float length = sqrt(x * x + y * y);
-    x /= length;
-    y /= length;
+    if(x * x + y * y > 0) {
+      float length = sqrt(x * x + y * y);
+      x /= length;
+      y /= length;
+    }
   }
 
   void add(Vec2 *vec) {
@@ -74,6 +84,7 @@ struct Vec2 {
 };
 
 static void     draw_stuff();
+static void     draw_building(float shade, float windowshade, int stories, float x, float z);
 static void     draw_quad(float shade, Vec3 *p1, Vec3 *p2, Vec3 *p3, Vec3 *p4);
 static void     update();
 static void     handle_input();
@@ -94,22 +105,62 @@ static SDL_Event        event;
 static int              prevkeys[323] = { 0 };
 static int              keys[323] = { 0 };
 static Vec2             mrel;
-static Vec2             playerpos(-1.0f, -1.0f);
-static Vec2             playervel;
-static Vec2             look;
+static Vec2             playerpos(3.0f, -7.0f);
+static Vec2             playervel(0.0f, 0.0f);
+static Vec2             look(-1.5f, 1.5f);
 static bool             running = true;
 static bool             fullscreen = false;
 static bool             sound = false;
 
 static void draw_stuff() {
-  draw_quad(.5f, new Vec3(0, 0, 0), new Vec3(1, 0, 0), new Vec3(1, 1, 0), new Vec3(0, 1, 0));
+  draw_quad(.3f, new Vec3(playerpos.x - 200, 0, playerpos.y - 200), new Vec3(playerpos.x - 200, 1, playerpos.y + 200), new Vec3(playerpos.x + 200, 0, playerpos.y + 200), new Vec3(playerpos.x + 200, 0, playerpos.y - 200));
+  draw_building(.5f, 0.9f, 10, 0.0f, 0.0f);
+}
+
+static void draw_building(float shade, float windowshade, int stories, float x, float z) {
+  const float story_scale = 2.0f;
+  const float width = 9.0f;
+  for(float i = 0; i < width; i+=width / 9) {
+    draw_quad(shade, new Vec3(x + i, story_scale * 1.5, z), new Vec3(x + i, stories * story_scale, z), new Vec3(x + i + width / 9, stories * story_scale, z), new Vec3(x + i + width / 9, story_scale * 1.5, z));
+    i += width / 9;
+    if(i < width) {
+      for(float j = story_scale * 1.5; j + story_scale * 3 / 4 < stories * story_scale; j+=story_scale) {
+        draw_quad(shade, new Vec3(x + i, j + story_scale * 3 / 4, z), new Vec3(x + i, j + story_scale * 5 / 4, z), new Vec3(x + i + width / 9, j + story_scale * 5 / 4, z), new Vec3(x + i + width / 9, j + story_scale * 3 / 4, z));
+
+        draw_quad(shade, new Vec3(x + i, j + story_scale / 4, z + 0.1f), new Vec3(x + i, j + story_scale / 4, z), new Vec3(x + i, j + story_scale * 3 / 4, z), new Vec3(x + i, j + story_scale * 3 / 4, z + 0.1f));
+        draw_quad(shade, new Vec3(x + i + width / 9, j + story_scale / 4, z), new Vec3(x + i + width / 9, j + story_scale / 4, z + 0.1f), new Vec3(x + i + width / 9, j + story_scale * 3 / 4, z + 0.1f), new Vec3(x + i + width / 9, j + story_scale * 3 / 4, z));
+
+        draw_quad(shade, new Vec3(x + i, j + story_scale * 3 / 4, z + 0.1f), new Vec3(x + i, j + story_scale * 3 / 4, z), new Vec3(x + i + width / 9, j + story_scale * 3 / 4, z), new Vec3(x + i + width / 9, j + story_scale * 3 / 4, z + 0.1f));
+
+        draw_quad(windowshade, new Vec3(x + i, j + story_scale / 4, z + 0.1f), new Vec3(x + i, j + story_scale * 3 / 4, z + 0.1f), new Vec3(x + i + width / 9, j + story_scale * 3 / 4, z + 0.1f), new Vec3(x + i + width / 9, j + story_scale / 4, z + 0.1f));
+      }
+      draw_quad(shade, new Vec3(x + i, stories * story_scale - story_scale / 4, z), new Vec3(x + i, stories * story_scale, z), new Vec3(x + i + width / 9, stories * story_scale, z), new Vec3(x + i + width / 9, stories * story_scale - story_scale / 4, z));
+    }
+  }
+  draw_quad(shade, new Vec3(x, 0, z), new Vec3(x, story_scale * 1.75, z), new Vec3(x + width * 4 / 9, story_scale * 1.75, z), new Vec3(x + width * 4 / 9, 0, z));
+  draw_quad(shade, new Vec3(x + width, 0, z), new Vec3(x + width, story_scale * 1.75, z), new Vec3(x + width * 4 / 9, story_scale * 1.75, z), new Vec3(x + width * 4 / 9, 0, z));
+//  draw_quad(shade, new Vec3(x, 0, z), new Vec3(x, stories * story_scale, z), new Vec3(x + width, stories * story_scale, z), new Vec3(x + width, 0, z));
+  draw_quad(shade, new Vec3(x, 0, z), new Vec3(x, 0, z + width), new Vec3(x, stories * story_scale, z + width), new Vec3(x, stories * story_scale, z));
+  draw_quad(shade, new Vec3(x + width, 0, z), new Vec3(x + width, stories * story_scale, z), new Vec3(x + width, stories * story_scale, z + width), new Vec3(x + width, 0, z + width));
+  draw_quad(shade, new Vec3(x + width, stories * story_scale, z + width), new Vec3(x, stories * story_scale, z + width), new Vec3(x, 0, z + width), new Vec3(x + width, 0, z + width));
 }
 
 static void draw_quad(float shade, Vec3 *p1, Vec3 *p2, Vec3 *p3, Vec3 *p4) {
   glUseProgram(shaderprogram);
   glBegin(GL_QUADS);
 
-  glColor3f(shade, shade, shade);
+  GLint location = glGetAttribLocation(shaderprogram, "in_Color");
+  glVertexAttrib1f(location, shade);
+  glBindAttribLocation(shaderprogram, location, "in_Color");
+  location = glGetAttribLocation(shaderprogram, "normal");
+  Vec3 *a = new Vec3(p2->x - p1->x, p2->y - p1->y, p2->z - p1->z);
+  Vec3 *b = new Vec3(p3->x - p1->x, p3->y - p1->y, p3->z - p1->z);
+  Vec3 *normal = b->cross(a);
+  glVertexAttrib3f(location, normal->x, normal->y, normal->z);
+  glBindAttribLocation(shaderprogram, location, "normal");
+  location = glGetAttribLocation(shaderprogram, "eye");
+  glVertexAttrib3f(location, playerpos.x, 1.5f, playerpos.y);
+  glBindAttribLocation(shaderprogram, location, "eye");
 
   glVertex3f(p1->x, p1->y, p1->z);
   glVertex3f(p2->x, p2->y, p2->z);
@@ -117,45 +168,50 @@ static void draw_quad(float shade, Vec3 *p1, Vec3 *p2, Vec3 *p3, Vec3 *p4) {
   glVertex3f(p4->x, p4->y, p4->z);
 
   glEnd();
+
+  free(a);
+  free(b);
+  free(normal);
 }
 
 static void update() {
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-
-  if(keys[SDLK_COMMA])
-    playervel.add(&look);
-  else if(keys[SDLK_o])
-    playervel.subtract(&look);
-
-  if(keys[SDLK_a]) {
-    Vec2 tmp;
-    tmp.x = -look.y;
-    tmp.y = look.x;
-    playervel.add(&tmp);
-  }
-  else if(keys[SDLK_e]) {
-    Vec2 tmp;
-    tmp.x = look.y;
-    tmp.y = -look.x;
-    playervel.add(&tmp);
-  }
-  playervel.normalize();
-  playerpos.add(&playervel);
-  Vec2 ablook;
-  ablook.x = playerpos.x - look.x;
-  ablook.y = playerpos.y - look.y;
-  look.x += mrel.x / 300.0f;
+  look.x += mrel.x / 300.0f ;
   look.y += mrel.y / 300.0f;
-  glPerspective(45.0f, (GLfloat) SCREEN_WIDTH / (GLfloat) SCREEN_HEIGHT, 0.1f, 20.0f);
-  gluLookAt(playerpos.x, 0.0f, playerpos.y,
-            look.x, look.y, 0.0f,
+  Vec2 acc;
+  if(keys[SDLK_COMMA]){
+    acc.x += cos(look.x);
+    acc.y -= sin(look.x);
+  }
+  else if(keys[SDLK_o] == 1) {
+    acc.x -= cos(look.x);
+    acc.y += sin(look.x);
+  }
+
+  if(keys[SDLK_a] == 1) {
+    acc.x -= sin(look.x);
+    acc.y -= cos(look.x);
+  }
+  else if(keys[SDLK_e] == 1) {
+    acc.x += sin(look.x);
+    acc.y += cos(look.x);
+  }
+  acc.normalize();
+  acc.multiply(0.01f);
+  playervel.multiply(0.85f);
+  playervel.add(&acc);
+  playerpos.add(&playervel);
+  glPerspective(45.0f, (GLfloat) SCREEN_WIDTH / (GLfloat) SCREEN_HEIGHT, 0.1f, 100.0f);
+  gluLookAt(playerpos.x, 1.5f, playerpos.y,
+            playerpos.x + cos(look.x), look.y, playerpos.y - sin(look.x),
             0.0f, 1.0f, 0.0f);
+//  gluLookAt(-1.0f, 0.0f, -1.0f, 0.5f, 0.5f, 1.0f, 0.0f, 1.0f, 0.0f);
   glMatrixMode(GL_MODELVIEW);
 }
 
 static void handle_input() {
-  look.zero();
+  mrel.zero();
   for(unsigned int i = 0; i < sizeof(keys) / sizeof(keys[0]); ++i) {
     prevkeys[i] = keys[i];
   }
@@ -169,7 +225,7 @@ static void handle_input() {
         break;
       case SDL_MOUSEMOTION:
         mrel.x = event.motion.xrel;
-        mrel.x = event.motion.yrel;
+        mrel.y = event.motion.yrel;
         SDL_WarpMouse(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
         break;
       case SDL_QUIT:
@@ -200,10 +256,6 @@ static void cleanup() {
 }
 
 static void init_shaders() {
-//  GLfloat quad[4][3] = { { p1->x,  p1->y,  p1->z }, { p2->x,  p2->y,  p2->z }, { p3->x,  p3->y,  p3->z }, { p4->x,  p4->y, p4->z  } };
-
-//  GLfloat colors[4][3] = { {  color->r,  color->g,  color->b  }, {  color->r,  color->g,  color->b  }, {  color->r,  color->g,  color->b  }, {  color->r,  color->g,  color->b  } };
-
   shaderprogram = glCreateProgram();
 
   /* These pointers will receive the contents of our shader source code files */
@@ -235,7 +287,31 @@ static void init_shaders() {
   glShaderSource(fragmentshader, 1, fragmentsource, fragmentlengths);
 
   glCompileShader(vertexshader);
+//  GLint status;
+  GLsizei length;
+  GLchar infoLog[256];
+/*  glGetShaderiv(vertexshader, GL_COMPILE_STATUS, &status);
+  if(status == GL_FALSE) {
+    fprintf(stderr, "Couldn't compile vertex shader.\n");
+    fflush(stdout);
+    exit(-1);
+  } */
+  glGetShaderInfoLog(vertexshader, 255, &length, infoLog);
+  if(length != 0) {
+    printf("%s\n", infoLog);
+  }
+
   glCompileShader(fragmentshader);
+/*  glGetShaderiv(fragmentshader, GL_COMPILE_STATUS, &status);
+  if(status == GL_FALSE) {
+    fprintf(stderr, "Couldn't compile fragment shader.\n");
+    fflush(stdout);
+    exit(-1);
+  } */
+  glGetShaderInfoLog(fragmentshader, 255, &length, infoLog);
+  if(length != 0) {
+    printf("%s\n", infoLog);
+  }
 
   glAttachShader(shaderprogram, vertexshader);
   glAttachShader(shaderprogram, fragmentshader);
@@ -276,7 +352,7 @@ static void init() {
 
   SDL_ShowCursor(SDL_DISABLE);
 
-  glClearColor((100.0f / 255.0f), (149.0f / 255.0f), (237.0f / 255.0f), 0.0f);
+  glClearColor(0.01f, 0.01f, 0.01f, 0.0f);
   glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
   SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
@@ -284,13 +360,14 @@ static void init() {
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-//  glFrustum(-1.0, 1.0, 1.0, -1.0, -1.0, 1.0); // left, right, bottom, top, near, far
   glPerspective(45.0f, (GLfloat) SCREEN_WIDTH / (GLfloat) SCREEN_HEIGHT, 0.1f, 100.0f);
   glMatrixMode(GL_MODELVIEW);
 
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
   glEnable(GL_TEXTURE_2D);
+  glEnable(GL_MULTISAMPLE);
+  glEnable(GL_CULL_FACE);
   glShadeModel(GL_SMOOTH);  
 
   init_shaders();
