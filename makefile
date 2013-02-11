@@ -5,6 +5,7 @@ SRC = src
 OBJ = obj
 CC = g++
 PREFIX = /usr/local
+RES = /usr/share/coed
 LDFLAGS = -lSDLmain -lSDL -lSDL_mixer -lSDL_image -lGL -lGLEW -lGLU
 CFLAGS = -Wall -O2
 INC = -Iinc
@@ -34,7 +35,9 @@ clean:
 install: all
 	@echo installing to ${DESTDIR}${PREFIX}/bin
 	@mkdir -p ${DESTDIR}${PREFIX}/bin
+	@mkdir -p ${RES}
 	@cp -f ${NAME} ${DESTDIR}${PREFIX}/bin
+	@cp -v res/* ${RES}
 	@chmod 755 ${DESTDIR}${PREFIX}/bin/${NAME}
 
 uninstall:

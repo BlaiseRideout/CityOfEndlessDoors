@@ -176,8 +176,8 @@ struct Building {
 
 static GLuint           shaderprogram;
 static unsigned int     SCREEN_BPP = 24;
-static unsigned int     SCREEN_WIDTH = 1366;
-static unsigned int     SCREEN_HEIGHT = 768;
+static unsigned int     SCREEN_WIDTH = 1280;
+static unsigned int     SCREEN_HEIGHT = 720;
 static SDL_Surface*     screen = NULL;
 static SDL_Event        event;
 static int              prevkeys[323] = { 0 };
@@ -311,8 +311,8 @@ static void update() {
 
       if(stories < 3)
         stories = 3;
-      else if(stories > 25)
-        stories = 25;
+      else if(stories > 20)
+        stories = 20;
 
       buildings[9][i] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(buildings[8][i].pos.x + 15, buildings[8][i].pos.y), stories, rand() % 4, rand() % probability != 0);
     }
@@ -333,8 +333,8 @@ static void update() {
 
       if(stories < 3)
         stories = 3;
-      else if(stories > 25)
-        stories = 25;
+      else if(stories > 20)
+        stories = 20;
 
       buildings[0][i] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(buildings[1][i].pos.x - 15, buildings[1][i].pos.y), stories, rand() % 4, rand() % probability != 0);
     }
@@ -355,8 +355,8 @@ static void update() {
 
       if(stories < 3)
         stories = 3;
-      else if(stories > 25)
-        stories = 25;
+      else if(stories > 20)
+        stories = 20;
 
       buildings[i][9] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(buildings[i][8].pos.x, buildings[i][8].pos.y + 15), stories, rand() % 4, rand() % probability != 0);
     }
@@ -377,8 +377,8 @@ static void update() {
 
       if(stories < 3)
         stories = 3;
-      else if(stories > 25)
-        stories = 25;
+      else if(stories > 20)
+        stories = 20;
 
       buildings[i][0] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(buildings[i][1].pos.x, buildings[i][1].pos.y - 15), stories, rand() % 4, rand() % probability != 0);
     }
@@ -499,35 +499,53 @@ static void init_shaders() {
   vertexsource = (const GLchar**)malloc(sizeof(GLchar**));
   fragmentsource = (const GLchar**)malloc(sizeof(GLchar**));
 
-  string *source = filetobuf("src/screen.vert");
-  vertexsource[0] = (char *)source->data();
-  vertexlengths[0] = source->size();
-  free(source);
+  string *source = filetobuf("res/screen.vert");
+  if(!source) {
+    source = filetobuf("/usr/share/coed/screen.vert");
+    if(!source)
+      puts("Couldn't load vertex shader.");
+  }
+  if(source) {
+    vertexsource[0] = (char *)source->data();
+    vertexlengths[0] = source->size();
+    free(source);
 
-  source = filetobuf("src/screen.frag");
-  fragmentsource[0] = (char *)source->data();
-  fragmentlengths[0] = source->size();
-  free(source);
+    glShaderSource(vertexshader, 1, vertexsource, vertexlengths);
 
-  glShaderSource(vertexshader, 1, vertexsource, vertexlengths); 
-  glShaderSource(fragmentshader, 1, fragmentsource, fragmentlengths);
+    glCompileShader(vertexshader);
+    GLsizei length;
+    GLchar infoLog[256];
+    glGetShaderInfoLog(vertexshader, 255, &length, infoLog);
+    if(length != 0) {
+      printf("%s\n", infoLog);
+    }
 
-  glCompileShader(vertexshader);
-  GLsizei length;
-  GLchar infoLog[256];
-  glGetShaderInfoLog(vertexshader, 255, &length, infoLog);
-  if(length != 0) {
-    printf("%s\n", infoLog);
+    glAttachShader(shaderprogram, vertexshader);
   }
 
-  glCompileShader(fragmentshader);
-  glGetShaderInfoLog(fragmentshader, 255, &length, infoLog);
-  if(length != 0) {
-    printf("%s\n", infoLog);
+  source = filetobuf("res/screen.frag");
+  if(!source) {
+    source=filetobuf("/usr/share/coed/screen.frag");
+    if(!source)
+      puts("Couldn't load fragment shader.");
   }
+  if(source) {
+    fragmentsource[0] = (char *)source->data();
+    fragmentlengths[0] = source->size();
+    free(source);
 
-  glAttachShader(shaderprogram, vertexshader);
-  glAttachShader(shaderprogram, fragmentshader);
+    glShaderSource(fragmentshader, 1, fragmentsource, fragmentlengths);
+
+    glCompileShader(fragmentshader);
+    GLsizei length;
+    GLchar infoLog[256];
+    glGetShaderInfoLog(fragmentshader, 255, &length, infoLog);
+    if(length != 0) {
+      printf("%s\n", infoLog);
+    }
+
+    glAttachShader(shaderprogram, fragmentshader);
+  }
 
   glLinkProgram(shaderprogram);
   glValidateProgram(shaderprogram);
@@ -562,8 +580,8 @@ static void init() {
 
       if(stories < 3)
         stories = 3;
-      else if(stories > 25)
-        stories = 25;
+      else if(stories > 20)
+        stories = 20;
 
       buildings[i][j] = Building(rand() % 256 / 255.0f, rand() % 256 / 255.0f, Vec2(i * 15 - 75, j * 15 - 75), stories, rand() % 4, rand() % probability != 0);
     }
@@ -571,7 +589,7 @@ static void init() {
   SDL_Init(SDL_INIT_EVERYTHING);
 
   if(fullscreen)
-    screen = SDL_SetVideoMode(0, 0, SCREEN_BPP, SDL_OPENGL | SDL_FULLSCREEN);
+    screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_OPENGL | SDL_FULLSCREEN);
   else
     screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_OPENGL);
 
@@ -616,12 +634,15 @@ static void init() {
 static void load_music() {
   steps = Mix_LoadMUS("res/steps.wav");
   if(!steps)
-    printf("%s\n", Mix_GetError());
-//  Mix_PlayMusic(steps, -1);
+    steps = Mix_LoadMUS("/usr/share/coed/steps.wav");
+    if(!steps)
+      printf("%s\n", Mix_GetError());
 }
 
 static string *filetobuf(const char *file) {
   ifstream t(file);
+  if(!t)
+    return NULL;
   string *ret = new string((istreambuf_iterator<char>(t)), istreambuf_iterator<char>());
   return ret;
 }
