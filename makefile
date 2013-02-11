@@ -16,7 +16,10 @@ OBJS = $(patsubst %,$(OBJ)/%,$(_OBJS))
 $(OBJ)/%.o: $(SRC)/%.cpp
 	@$(CC) -c $(INC) -o $@ $< $(CFLAGS)
 
-all: options clean ${NAME}
+all: options clean obj ${NAME}
+
+obj:
+	@mkdir -p $(OBJ)
 
 options:
 	@echo "${NAME} build options:"
